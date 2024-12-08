@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carte interactive - Dessinez des polygones</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css">
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
+    <style>
+        #map {
+            width: 80%;
+            height: 600px;
+            margin: 20px auto;
+        }
+        .leaflet-bar button {
+            cursor: pointer;
+            padding: 5px;
+            border: none;
+            background-color: #fff;
+            box-shadow: 0 1px 5px rgba(0, 0, 0, 0.65);
+            border-radius: 3px;
+        }
+        #download-link {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center;">Carte interactive - Dessinez et téléchargez des polygones</h1>
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <!-- Leaflet Draw JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <!-- shp-write JS -->
+    <script src="https://cdn.jsdelivr.net/npm/shp-write/shpwrite.min.js"></script>
+    <script>
+        // Initialisation de la carte centrée sur l'Île-de-France
+        var map = L.map('map').setView([48.8566, 2.3522], 9);
+
+        // Ajouter des tuiles de fond
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Initialisation du plugin Leaflet.Draw
+        var drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+
+        var drawControl = new L.Control.Draw({
+            edit: {
+                featureGroup: drawnItems, // Permet la suppression et l'édition des polygones
+                remove: true // Active la suppression
+            },
+            draw: {
+                polygon: true, // Autorise uniquement les polygones
+                polyline: false,
+                rectangle: false,
+                circle: false,
+                marker: false,
+                circlemarker: false
+            }
+        });
+        map.addControl(drawControl);
+
+        // Capture des événements de dessin
+        map.on(L.Draw.Event.CREATED, function (e) {
+            var layer = e.layer;
+            drawnItems.addLayer(layer);
+        });
+
+        // Fonction pour télécharger un fichier SHP
+        function downloadSHP() {
+            if (drawnItems.getLayers().length === 0) {
+                alert("Aucun polygone dessiné. Veuillez dessiner au moins un polygone avant de télécharger.");
+                return;
+            }
+
+            // Convertit les polygones dessinés en GeoJSON
+            var geojsonData = drawnItems.toGeoJSON();
+            var shpData = shpwrite.zip(geojsonData);
+
+            // Crée un objet Blob pour le fichier ZIP
+            var blob = new Blob([shpData], { type: 'application/zip' });
+
+            // Crée une URL temporaire pour le téléchargement
+            var url = URL.createObjectURL(blob);
+
+            // Crée un lien de téléchargement invisible
+            var link = document.createElement('a');
+            link.href = url;
+            link.download = 'polygones.zip'; // Nom du fichier téléchargé
+            document.body.appendChild(link);
+
+            // Déclenche le téléchargement et nettoie le lien
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        // Ajout d'un bouton pour l'exportation
+        var exportButton = L.control({ position: 'topright' });
+        exportButton.onAdd = function () {
+            var div = L.DomUtil.create('div', 'leaflet-bar');
+            div.innerHTML = '<button onclick="downloadSHP()">Télécharger SHP</button>';
+            return div;
+        };
+        exportButton.addTo(map);
+    </script>
+</body>
+</html>
